@@ -138,8 +138,3 @@ DB_TYPE=postgresql  # or mysql
 ```
 
 
-**AI giving weird answers?** → Verify your table name is correct in the notebook configuration
-
----
-
-*Built for people who believe data should tell stories, not hide them.*
