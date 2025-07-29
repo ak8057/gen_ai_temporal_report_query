@@ -116,18 +116,6 @@ Watch as your Excel data gets transformed into a queryable database table.
 
 The AI will analyze your data and give you intelligent, contextual answers.
 
-## What Makes This Special
-
-**Smart Processing** → Handles messy Excel files and creates clean database structures
-
-**Natural Language Queries** → No need to write SQL. Just ask questions like you're talking to a colleague
-
-**Flexible Database Support** → Works with PostgreSQL, MySQL, and can be extended to others
-
-**Containerized Deployment** → Docker makes setup painless across different environments
-
-**Interactive Analysis** → Jupyter notebooks provide a familiar interface for data exploration
-
 ## Real-World Example
 
 Let's say you have a sales report in Excel:
@@ -135,9 +123,6 @@ Let's say you have a sales report in Excel:
 1. **Before**: Manually sorting through rows, creating pivot tables, struggling with complex formulas
 2. **After**: "Hey, what were our best-selling products last month?" → Get instant insights with charts and explanations
 
-## Contributing
-
-Found a bug? Have an idea? Contributions are welcome. This project grows better with community input.
 
 ## Database Configuration
 
@@ -152,11 +137,6 @@ DB_PASSWORD=your_password
 DB_TYPE=postgresql  # or mysql
 ```
 
-## Troubleshooting
-
-**Can't connect to database?** → Check your `.env` file and ensure your database is running
-
-**Excel file not processing?** → Make sure the file isn't password-protected and has clear headers
 
 **AI giving weird answers?** → Verify your table name is correct in the notebook configuration
 
