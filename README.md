@@ -87,3 +87,27 @@ DataRetrievalintoSQL/
    - Process the Excel file
    - Create a dedicated table for the file
    - Store structured data with proper column mapping
+
+
+### Step 2: AI-Powered Analysis
+
+1. **Open the query interface**
+   ```bash
+   cd queryGeneration
+   jupyter notebook sql_query.ipynb
+   ```
+
+2. **Configure the notebook**
+   - Set the correct database connection path
+   - Specify the target table name
+   - Run the notebook cells
+
+3. **Query your data**
+   - Ask questions about your data in natural language
+   - Get AI-generated summaries and insights
+   - Receive intelligent answers based on your dataset
+
+## 💡 Key Features
+
+- **Multi-format Support**: Handles Excel files and similar data formats
+- **AutomateA
