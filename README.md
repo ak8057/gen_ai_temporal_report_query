@@ -114,14 +114,7 @@ Watch as your Excel data gets transformed into a queryable database table.
    - "Show me trends from the last quarter"
    - "Which products are underperforming?"
 
-The AI will analyze your data and give you intelligent, contextual answers.
-
-## Real-World Example
-
-Let's say you have a sales report in Excel:
-
-1. **Before**: Manually sorting through rows, creating pivot tables, struggling with complex formulas
-2. **After**: "Hey, what were our best-selling products last month?" → Get instant insights with charts and explanations
+The model will analyze your data and give you intelligent, contextual answers.
 
 
 ## Database Configuration
