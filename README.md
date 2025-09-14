@@ -59,7 +59,7 @@ DataRetrievalintoSQL/
 
 ### What You Need
 - Docker (for easy setup)
-- A SQL database (PostgreSQL or MySQL)
+- A SQL database (PostgreSQL or MySQL or mongoDB based on the usage)
 - Python 3.x if you want to run things locally
 
 ### Quick Setup
