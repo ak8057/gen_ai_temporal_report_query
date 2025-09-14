@@ -193,4 +193,4 @@ DB_TYPE=postgresql  # or mysql
 
 ---
 
-*Built for people who believe data should tell stories, not hide them.*
+
