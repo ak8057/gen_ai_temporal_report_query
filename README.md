@@ -4,7 +4,7 @@
 
 ---
 
-## What This Does
+## What This Does?
 
 Ever wished you could just ask your spreadsheets questions and get smart answers back? That's exactly what this project does. Drop in an Excel, PDF, images or any other files, and suddenly you can have all data extracted and stored in the Sql database.
 
