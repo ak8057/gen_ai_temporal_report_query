@@ -8,6 +8,7 @@ from utils.db import DB_URL
 from langchain_community.utilities.sql_database import SQLDatabase
 
 
+
 load_dotenv()  
 
 # Initialize LLM
@@ -43,10 +44,17 @@ db_chain = SQLDatabaseChain.from_llm(
     return_intermediate_steps=True
 )
 
+from sqlalchemy import text
+
+
+
+
 def generate_sql_from_nl(question: str) -> dict:
     """
     Takes natural language question and returns generated SQL query.
     """
     result = db_chain.invoke(question)
+
     sql_query = result["result"] if "result" in result else str(result)
+    sql_query = sql_query.replace('%', '%%') 
     return {"question": question, "sql_query": sql_query}

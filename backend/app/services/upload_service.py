@@ -55,7 +55,7 @@ async def ingest_file_to_db(file: UploadFile, table_name: str = None, if_exists:
         # verify row count in DB
         with engine.connect() as conn:
             result = conn.execute(text(f"SELECT COUNT(*) AS cnt FROM `{table_name}`;"))
-            row = result.fetchone()
+            row = [dict(r) for r in result.fetchall()]
             if row is None:
                 cnt = 0
             else:

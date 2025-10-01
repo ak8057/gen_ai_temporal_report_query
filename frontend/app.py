@@ -1,37 +1,28 @@
 import streamlit as st
-from utils.api import upload_file, nl_to_sql, execute_sql
-import pandas as pd
+from components.sidebar import sidebar_ui
+from components.file_upload import upload_ui
+from components.nl_query import nl_query_ui
+from components.sql_editor import sql_editor_ui
+from components.followup import followup_ui
 
-
-#streamlit run frontend/app.py
+st.set_page_config(
+    page_title="NL2SQL Intelligence",
+    page_icon="🧠",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 st.title("NL2SQL Dashboard")
 
-# 1️⃣ File upload
-uploaded_file = st.file_uploader("Upload Excel/CSV", type=["xlsx","xls","csv"])
-table_name = st.text_input("Optional table name")
-if uploaded_file and st.button("Ingest Table"):
-    with open("temp_upload.xlsx","wb") as f:
-        f.write(uploaded_file.getbuffer())
-    result = upload_file("temp_upload.xlsx", table_name)
-    st.success(f"Table created: {result.get('table_name')}")
-    st.write(result)
+# Sidebar
+db_selected, table_selected = sidebar_ui()
 
-# 2️⃣ NL query → SQL
-nl_question = st.text_input("Ask a question in natural language")
-if nl_question and st.button("Generate SQL"):
-    sql_result = nl_to_sql(nl_question)
-    sql_query = sql_result.get("sql_query")
-    st.code(sql_query)
-    st.session_state["last_sql"] = sql_query
+# Two columns for query & results
+col1, col2 = st.columns([1,1])
 
-# 3️⃣ Edit & execute SQL
-if "last_sql" in st.session_state:
-    edited_sql = st.text_area("Edit SQL if needed", value=st.session_state["last_sql"])
-    if st.button("Run SQL"):
-        exec_result = execute_sql(edited_sql)
-        df = pd.DataFrame(exec_result["rows"])
-        st.dataframe(df)
-        # Plot numeric columns
-        numeric_cols = df.select_dtypes(include="number").columns
-        if len(numeric_cols) > 0:
-            st.bar_chart(df[numeric_cols])
+with col1:
+    upload_ui(db_selected)
+    nl_query_ui(db_selected)
+    followup_ui()
+
+with col2:
+    sql_editor_ui(db_selected)
