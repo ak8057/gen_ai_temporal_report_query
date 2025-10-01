@@ -1,0 +1,23 @@
+# backend/routes/upload_excel.py
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from typing import Optional
+from app.services.upload_service import ingest_file_to_db
+import traceback
+
+router = APIRouter()
+
+@router.post("/")
+async def upload_excel(
+    file: UploadFile = File(...),
+    table_name: Optional[str] = Form(None),
+    if_exists: str = Form("replace")  # allowed: replace, append, fail
+):
+    if if_exists not in ("replace", "append", "fail"):
+        raise HTTPException(status_code=400, detail="if_exists must be one of 'replace','append','fail'")
+
+    try:
+        result = await ingest_file_to_db(file, table_name=table_name, if_exists=if_exists)
+        return {"status": "success", **result}
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
