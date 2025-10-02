@@ -8,6 +8,9 @@ router = APIRouter()
 class NLQueryRequest(BaseModel):
     question: str
 
+
+
+
 @router.post("/")
 def nl2sql_route(request: NLQueryRequest):
     try:

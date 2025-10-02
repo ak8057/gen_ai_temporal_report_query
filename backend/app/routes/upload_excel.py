@@ -10,13 +10,14 @@ router = APIRouter()
 async def upload_excel(
     file: UploadFile = File(...),
     table_name: Optional[str] = Form(None),
+    db_name: str = Form(...),
     if_exists: str = Form("replace")  # allowed: replace, append, fail
 ):
     if if_exists not in ("replace", "append", "fail"):
         raise HTTPException(status_code=400, detail="if_exists must be one of 'replace','append','fail'")
 
     try:
-        result = await ingest_file_to_db(file, table_name=table_name, if_exists=if_exists)
+        result = await ingest_file_to_db(file,db_name=db_name, table_name=table_name, if_exists=if_exists)
         return {"status": "success", **result}
     except Exception as e:
         traceback.print_exc()

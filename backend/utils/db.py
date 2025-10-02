@@ -48,3 +48,19 @@ def get_db():
         yield db
     finally:
         db.close()
+
+# ✅ New function for dynamic DB selection
+_engine_cache = {}
+
+def get_engine_for_db(db_name: str):
+    """
+    Returns a SQLAlchemy engine for the given database.
+    Uses caching to avoid recreating engines each time.
+    """
+    if not db_name:
+        return engine  # fallback to default
+    
+    if db_name not in _engine_cache:
+        url = f"mysql+pymysql://{DB_USER}:{DB_PASS_QUOTED}@{DB_HOST}:{DB_PORT}/{db_name}"
+        _engine_cache[db_name] = create_engine(url, pool_pre_ping=True, pool_recycle=3600)
+    return _engine_cache[db_name]

@@ -6,8 +6,9 @@ from fastapi import UploadFile
 from utils.db import engine
 from utils.db_utils import sanitize_name, clean_dataframe, infer_sql_type
 from sqlalchemy import text
+from utils.db import get_engine_for_db
 
-async def ingest_file_to_db(file: UploadFile, table_name: str = None, if_exists: str = "replace"):
+async def ingest_file_to_db(file: UploadFile, db_name: str, table_name: str = None, if_exists: str = "replace"):
     """
     - file: UploadFile from FastAPI
     - table_name: optional. If None, table name derived from filename
@@ -49,13 +50,15 @@ async def ingest_file_to_db(file: UploadFile, table_name: str = None, if_exists:
         # dtype map for to_sql
         dtype_map = {col: infer_sql_type(dtype) for col, dtype in df.dtypes.items()}
 
+        engine = get_engine_for_db(db_name)
+
         # write to DB
         df.to_sql(table_name, con=engine, if_exists=if_exists, index=False, dtype=dtype_map)
 
         # verify row count in DB
         with engine.connect() as conn:
             result = conn.execute(text(f"SELECT COUNT(*) AS cnt FROM `{table_name}`;"))
-            row = [dict(r) for r in result.fetchall()]
+            row = result.fetchone()
             if row is None:
                 cnt = 0
             else:
