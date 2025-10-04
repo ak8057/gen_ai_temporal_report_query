@@ -34,7 +34,7 @@ DataRetrievalintoSQL/
 │   └── docker-compose.yml      # One-click deployment
 │
 ├── 📂 queryGeneration/          # Where the AI magic happens
-│   └── sql_query.ipynb         # Your data conversation interface
+│   └── query_based_genai.ipynb         # Your data conversation interface
 │
 └── README.md                   # You are here
 ```
