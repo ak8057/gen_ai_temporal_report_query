@@ -10,8 +10,6 @@ Ever wished you could just ask your spreadsheets questions and get smart answers
 
 ## How It Works
 
-The magic happens in two simple steps:
-
 **1. Data Ingestion** → Your Excel files get processed and stored in a proper SQL database  
 **2. AI Analysis** → Ask questions in plain English and get intelligent answers about your data
 
