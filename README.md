@@ -181,14 +181,5 @@ DB_TYPE=postgresql  # or mysql
 
 *Built for intelligent data analysis and insights.*
 
-## Troubleshooting
-
-**Can't connect to database?** → Check your `.env` file and ensure your database is running
-
-**Excel file not processing?** → Make sure the file isn't password-protected and has clear headers
-
-**AI giving weird answers?** → Verify your table name is correct in the notebook configuration
-
----
 
 
