@@ -10,8 +10,6 @@ Ever wished you could just ask your spreadsheets questions and get smart answers
 
 ## How It Works
 
-The magic happens in two simple steps:
-
 **1. Data Ingestion** → Your Excel files get processed and stored in a proper SQL database  
 **2. AI Analysis** → Ask questions in plain English and get intelligent answers about your data
 
@@ -34,7 +32,7 @@ DataRetrievalintoSQL/
 │   └── docker-compose.yml      # One-click deployment
 │
 ├── 📂 queryGeneration/          # Where the AI magic happens
-│   └── sql_query.ipynb         # Your data conversation interface
+│   └── query_based_genai.ipynb         # Your data conversation interface
 │
 └── README.md                   # You are here
 ```
@@ -183,14 +181,5 @@ DB_TYPE=postgresql  # or mysql
 
 *Built for intelligent data analysis and insights.*
 
-## Troubleshooting
-
-**Can't connect to database?** → Check your `.env` file and ensure your database is running
-
-**Excel file not processing?** → Make sure the file isn't password-protected and has clear headers
-
-**AI giving weird answers?** → Verify your table name is correct in the notebook configuration
-
----
 
 
