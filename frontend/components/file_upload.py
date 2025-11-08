@@ -8,6 +8,6 @@ def upload_ui(db_selected):
     if uploaded_file and st.button("Ingest Table"):
         with open("temp_upload.xlsx","wb") as f:
             f.write(uploaded_file.getbuffer())
-        result = upload_file("temp_upload.xlsx", table_name, db_selected)
+            result = upload_file("temp_upload.xlsx", table_name, db_selected["db_name"])
         st.success(f"Table created: {result.get('table_name')}")
         st.write(result)

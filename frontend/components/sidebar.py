@@ -1,44 +1,41 @@
 import streamlit as st
-from utils.api import list_databases, list_tables
-
-from utils.api import execute_sql 
-
-# def sidebar_ui():
-#     st.sidebar.title("Settings")
-
-#     # Database selection
-#     databases = list_databases().get("databases", [])
-#     db_selected = st.sidebar.selectbox("Select Database", databases)
-
-#     # Table selection
-#     tables = list_tables(db_selected).get("tables", [])
-#     table_selected = st.sidebar.selectbox("Select Table", tables)
-
-#     return db_selected, table_selected
+from utils.api import list_databases, list_tables, execute_sql
 
 def sidebar_ui():
-    st.sidebar.title("Settings")
+    st.sidebar.title("⚙️ Settings")
 
-    # Database selection
-    databases = list_databases().get("databases", [])
+    # --- Step 1: Select Database ---
+    db_response = list_databases()
+    databases = db_response.get("databases", [])
+    if not databases:
+        st.sidebar.warning("No databases found. Please upload a file first.")
+        return None
+
     db_selected = st.sidebar.selectbox("Select Database", databases)
 
-    # Fetch tables
-    tables = list_tables(db_selected).get("tables", [])
+    # --- Step 2: Select Table ---
+    table_response = list_tables(db_selected)
+    tables = table_response.get("tables", [])
+    if not tables:
+        st.sidebar.warning(f"No tables found in database '{db_selected}'.")
+        return {"db_name": db_selected, "table_name": None}
 
-    # Let user pick a table **only to preview data**, not to restrict queries
-    table_preview = st.sidebar.selectbox(
-        "Preview Table (optional)",
-        ["None"] + tables
-    )
+    table_selected = st.sidebar.selectbox("Select Table", tables)
 
-    # Show first few rows of the selected table
-    if table_preview and table_preview != "None":
-         # your frontend API
-        preview_sql = f"SELECT * FROM `{table_preview}` LIMIT 5;"
-        result = execute_sql(preview_sql, db_selected)
-        if result.get("status") == "success":
-            st.sidebar.dataframe(result.get("rows"))
+    # --- Step 3: Optional Table Preview ---
+    st.sidebar.markdown("### 🔍 Preview Selected Table")
+    if table_selected:
+        try:
+            preview_sql = f"SELECT * FROM `{table_selected}` LIMIT 5;"
+            result = execute_sql(preview_sql, db_selected)
 
-    return db_selected
+            if result.get("status") == "success":
+                st.sidebar.dataframe(result.get("rows"))
+            else:
+                st.sidebar.error(result.get("detail", "Failed to load preview."))
 
+        except Exception as e:
+            st.sidebar.error(f"Error previewing table: {e}")
+
+    # --- Step 4: Return both DB and Table ---
+    return {"db_name": db_selected, "table_name": table_selected}

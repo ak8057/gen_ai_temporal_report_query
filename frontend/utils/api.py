@@ -1,4 +1,5 @@
 import requests
+import streamlit as st
 
 BASE_URL = "http://127.0.0.1:8000/api"
 
@@ -22,9 +23,26 @@ def upload_file(file_path, table_name=None, db_name=None, if_exists="replace"):
         r = requests.post(f"{BASE_URL}/upload/", files=files, data=data)
     return r.json()
 
-def nl_to_sql(question, db_name):
-    r = requests.post(f"{BASE_URL}/nl2sql/", json={"question": question, "db_name": db_name})
-    return r.json()
+# def nl_to_sql(question, db_name):
+#     r = requests.post(f"{BASE_URL}/nl2sql/", json={"question": question, "db_name": db_name})
+#     return r.json()
+
+def nl_to_sql(question,db_name, table_name):
+    """
+    Calls /nl2sql endpoint with the selected table.
+    """
+    payload = {
+        "question": question,
+        "db_name": db_name,
+        "table_name": table_name
+    }
+    r = requests.post(f"{BASE_URL}/nl2sql/", json=payload)
+    try:
+        return r.json()
+    except Exception:
+        st.error(f"Failed to parse response from backend: {r.text}")
+        return {"status": "error", "error": "Invalid response"}
+
 
 def execute_sql(sql_query, db_name):
     r = requests.post(f"{BASE_URL}/execute/", json={"sql_query": sql_query, "db_name": db_name})

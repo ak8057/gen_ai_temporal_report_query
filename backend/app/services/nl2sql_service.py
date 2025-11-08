@@ -17,6 +17,11 @@ from langchain_core.output_parsers import StrOutputParser
 from dotenv import load_dotenv
 from utils.db import DB_URL
 from langchain_experimental.sql import SQLDatabaseChain
+import traceback
+from utils.db import get_engine_for_db
+
+from sqlalchemy import inspect
+
 
 load_dotenv()
 
@@ -100,11 +105,68 @@ db_chain = SQLDatabaseChain.from_llm(
 # --------------------------
 # Function for NL → SQL
 # --------------------------
-def generate_sql_from_nl(question: str) -> dict:
-    result = db_chain.invoke({"query": question})
-    print(result)
 
-    sql_query = result.get("result", str(result))
-    sql_query = sql_query.replace('%', '%%')  # avoid pymysql formatting bug
+def generate_sql_from_nl(question: str, db_name: str, table_name: str) -> dict:
+    """
+    Generates an SQL query for the given question, database, and table using Gemini.
+    """
 
-    return {"question": question, "sql_query": sql_query}
+    try:
+        # --- Step 1: Dynamically connect to selected DB ---
+        engine = get_engine_for_db(db_name)
+        inspector = inspect(engine)
+
+        # --- Step 2: Validate the table exists ---
+        all_tables = inspector.get_table_names()
+        if table_name not in all_tables:
+            raise Exception(f"Table '{table_name}' not found in database '{db_name}'. "
+                            f"Available tables: {', '.join(all_tables)}")
+
+        # --- Step 3: Get table columns ---
+        columns = inspector.get_columns(table_name)
+        col_names = [col["name"] for col in columns]
+
+        # --- Step 4: Build schema for the LLM ---
+        schema_str = f"TABLE: {table_name}\nCOLUMNS: {', '.join(col_names)}"
+
+        # --- Step 5: Construct the LLM prompt ---
+        prompt = f"""
+        You are a MySQL expert.
+        The user is asking about the table '{table_name}' inside database '{db_name}'.
+
+        Here is the table schema:
+        {schema_str}
+
+        Instructions:
+        - Use only the '{table_name}' table and its listed columns.
+        - Generate a syntactically correct MySQL query.
+        - Do NOT invent columns or tables that don't exist.
+        - Return only the SQL query, no markdown or explanations.
+
+        User Question:
+        {question}
+        """
+
+        # --- Step 6: Ask Gemini to generate SQL ---
+        response = llm.invoke(prompt)
+        sql_query = response.content.strip()
+        sql_query = sql_query.replace("```sql", "").replace("```", "").strip()
+
+        # --- Step 7: Log and return the result ---
+        print("\n=======================")
+        print(f"[NL2SQL] Database: {db_name}")
+        print(f"[NL2SQL] Table: {table_name}")
+        print(f"[NL2SQL] Question: {question}")
+        print(f"[NL2SQL] SQL Query: {sql_query}")
+        print("=======================\n")
+
+        return {
+            "db_name": db_name,
+            "table_name": table_name,
+            "question": question,
+            "sql_query": sql_query
+        }
+
+    except Exception as e:
+        traceback.print_exc()
+        return {"status": "error", "error": str(e), "question": question}
