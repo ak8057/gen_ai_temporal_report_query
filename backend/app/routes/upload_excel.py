@@ -3,6 +3,8 @@ from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from typing import Optional
 from app.services.upload_service import ingest_file_to_db
 import traceback
+from utils.db_utils import refresh_schema_cache
+from utils.chroma_utils import sync_chroma_schema_embeddings
 
 router = APIRouter()
 
@@ -18,6 +20,13 @@ async def upload_excel(
 
     try:
         result = await ingest_file_to_db(file,db_name=db_name, table_name=table_name, if_exists=if_exists)
+
+         # Step 2: Refresh SQLAlchemy cache
+        refresh_schema_cache(db_name)
+
+        # Step 3: Rebuild Chroma schema embeddings
+        sync_chroma_schema_embeddings(db_name)
+
         return {"status": "success", **result}
     except Exception as e:
         traceback.print_exc()

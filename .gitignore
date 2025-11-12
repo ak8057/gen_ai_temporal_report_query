@@ -16,3 +16,12 @@ __pycache__/
 *.rej
 *.class
 *.jar
+
+# Python virtual environment
+venv/
+*.pyc
+
+# ChromaDB Database Files
+.chroma/
+chroma_db/
+*.bin 

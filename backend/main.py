@@ -3,6 +3,10 @@ from app.routes import upload_excel
 from app.routes import nl2sql
 from app.routes import execute_query
 from app.routes import db_meta
+from app.routes import debug_chroma
+from app.routes import refresh_schema
+
+
 
 app = FastAPI(
     title="NL2SQL Backend",
@@ -14,7 +18,8 @@ app.include_router(upload_excel.router, prefix="/api/upload", tags=["upload"])
 app.include_router(nl2sql.router, prefix="/api/nl2sql", tags=["NL2SQL"])
 app.include_router(execute_query.router, prefix="/api/execute", tags=["Execute"])
 app.include_router(db_meta.router, prefix="/api", tags=["DB Meta"])
-
+app.include_router(debug_chroma.router, prefix="/api/debug", tags=["Debug"])
+app.include_router(refresh_schema.router, prefix="/api/refresh", tags=["Schema Refresh"])
 
 
 # Health check route
