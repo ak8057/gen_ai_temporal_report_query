@@ -3,10 +3,11 @@ import traceback
 from dotenv import load_dotenv
 from sqlalchemy import inspect
 from utils.db import get_engine_for_db
-
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
+from utils.chroma_utils import sync_chroma_schema_embeddings
+from utils.fewshot_utils import build_fewshot_example_store
 
 load_dotenv()
 
@@ -46,166 +47,111 @@ STATIC_EXAMPLES = [
                   JOIN products p ON o.product_id = p.product_id
                   GROUP BY p.category;"""
     }
+    
 ]
 
 
-def _ensure_example_store():
-    """
-    Create / populate a Chroma store for few-shot examples (persisted to ./chroma_examples).
-    Returns a Chroma object.
-    """
-    coll_name = "fewshot_examples"
-    persist_dir = "./chroma_examples"
-    store = Chroma(collection_name=coll_name, embedding_function=embedding_model, persist_directory=persist_dir)
-
-    try:
-        # use internal count if available; fallback to retrieving documents
-        empty = False
-        try:
-            empty = store._collection.count() == 0
-        except Exception:
-            docs = store._collection.get(include=["ids"])
-            empty = len(docs.get("ids", [])) == 0
-    except Exception:
-        # if any introspection fails, assume empty and populate
-        empty = True
-
-    if empty:
-        docs = [ex["input"] for ex in STATIC_EXAMPLES]
-        metadatas = [{"sql": ex["sql"]} for ex in STATIC_EXAMPLES]
-        store.add_texts(docs, metadatas=metadatas)
-        print(f"[FewShot] Populated {len(docs)} static examples into Chroma at {persist_dir}/{coll_name}")
-
-    return store
 
 
-def _ensure_schema_store(db_name: str, inspector) -> Chroma:
-    """
-    Build or open a Chroma collection for the given DB schema, persisted under ./chroma_schemas/{db_name}
-    Each document contains enriched schema text (table name, columns with types).
-    """
-    coll_name = f"schema_{db_name}"
-    persist_dir = f"./chroma_schemas/{db_name}"
-    store = Chroma(collection_name=coll_name, embedding_function=embedding_model, persist_directory=persist_dir)
-
-    try:
-        empty = False
-        try:
-            empty = store._collection.count() == 0
-        except Exception:
-            docs = store._collection.get(include=["ids"])
-            empty = len(docs.get("ids", [])) == 0
-    except Exception:
-        empty = True
-
-    if empty:
-        docs, metadatas = [], []
-        tables = inspector.get_table_names()
-        for t in tables:
-            cols = inspector.get_columns(t)
-            # enrich columns with types when possible
-            col_parts = []
-            for c in cols:
-                name = c.get("name")
-                ctype = c.get("type")
-                col_parts.append(f"{name} ({ctype})")
-            schema_text = f"Table: {t}\nColumns: {', '.join(col_parts)}"
-            docs.append(schema_text)
-            metadatas.append({"table": t})
-        if docs:
-            store.add_texts(docs, metadatas=metadatas)
-            print(f"[SchemaIndex] Indexed {len(docs)} tables for DB '{db_name}' into {persist_dir}/{coll_name}")
-    return store
-
-
-def _get_relevant_examples(example_store: Chroma, question: str, k: int = 2):
+def _get_relevant_examples(example_store: Chroma, question: str, k: int = 3):
     """
     Retrieve top-k semantically similar few-shot examples to the given question.
-    Returns a formatted string block for the LLM prompt.
+    Returns a formatted string block ready to inject into the LLM prompt.
     """
     try:
+        # Perform similarity search
         hits = example_store.similarity_search(question, k=k)
         examples = []
-        for h in hits:
-            # 'h' is a Document object with .page_content and .metadata
-            q_text = getattr(h, "page_content", "")
-            sql = h.metadata.get("sql", "") if hasattr(h, "metadata") else ""
-            examples.append(f"Q: {q_text}\nSQL: {sql}")
 
-        print(f"[FewShotSelector] Retrieved {len(examples)} relevant few-shot examples for question '{question}'")
-        return "\n\n".join(examples)
+        for h in hits:
+            # h.page_content should look like "Q: ...\nSQL: ..."
+            content = getattr(h, "page_content", "").strip()
+
+            if "SQL:" in content:
+                q_text, sql_text = content.split("SQL:", 1)
+                q_text = q_text.replace("Q:", "").strip()
+                sql_text = sql_text.strip()
+            else:
+                q_text, sql_text = content, ""
+
+            examples.append(f"Q: {q_text}\nSQL: {sql_text}")
+
+        print(f"[FewShotSelector] ✅ Retrieved {len(examples)} relevant few-shot examples for question '{question}'")
+        return "\n\n".join(examples) if examples else "No relevant examples found."
 
     except Exception as e:
-        print("[FewShotSelector] Error retrieving few-shot examples:", e)
-        # fallback: return static examples if search fails
-        return "\n\n".join([f"Q: {ex['input']}\nSQL: {ex['sql']}" for ex in STATIC_EXAMPLES])
-
-
+        print(f"[FewShotSelector] ⚠️ Error retrieving few-shot examples: {e}")
+        # Fallback: use static examples if search fails
+        try:
+            from utils.fewshot_utils import FEWSHOT_EXAMPLES  # or wherever you stored them
+            return "\n\n".join([f"Q: {ex['input']}\nSQL: {ex['sql']}" for ex in FEWSHOT_EXAMPLES])
+        except Exception:
+            return "No few-shot examples available."
 
 def generate_sql_from_nl(question: str, db_name: str, table_name: str = None) -> dict:
     """
-    Few-shot + Chroma-enhanced NL -> SQL generator.
+    Few-shot + Chroma-enhanced NL → SQL generator.
+    Dynamically retrieves few-shot examples & schema embeddings using Chroma.
     Returns: {status, db_name, tables_used, question, sql_query} or error dict.
     """
     try:
         engine = get_engine_for_db(db_name)
         inspector = inspect(engine)
-
         all_tables = inspector.get_table_names()
+
         if not all_tables:
             raise Exception(f"No tables found in database '{db_name}'.")
 
-        # --- ensure stores ---
-        example_store = _ensure_example_store()
-        schema_store = _ensure_schema_store(db_name, inspector)
+        # --- Ensure dynamic stores are ready ---
+        example_store = build_fewshot_example_store()        # Few-shot examples Chroma
+        schema_store = sync_chroma_schema_embeddings(db_name)  # Schema Chroma
 
-        # --- find relevant tables via schema_store ---
+        # --- Retrieve relevant tables from schema_store ---
         top_k = min(3, max(1, len(all_tables)))
         schema_hits = schema_store.similarity_search(question, k=top_k)
+
         relevant_tables = []
         for h in schema_hits:
-            # metadata should contain 'table'
-            md = getattr(h, "metadata", None) or (h.get("metadata") if isinstance(h, dict) else {})
-            table = (md.get("table") if isinstance(md, dict) else None) or getattr(h, "metadata", {}).get("table")
+            md = getattr(h, "metadata", None) or {}
+            table = md.get("table")
             if table and table not in relevant_tables:
                 relevant_tables.append(table)
 
-        # fallback: include provided table_name (if valid)
+        # fallback: include selected table if not already present
         if table_name and table_name in all_tables and table_name not in relevant_tables:
             relevant_tables.insert(0, table_name)
 
-        # final fallback: use first table if none inferred
         if not relevant_tables:
             relevant_tables = [all_tables[0]]
 
-        # --- build schema_str for prompt using enriched metadata ---
+        # --- Build schema context string ---
         schema_str = ""
         for t in relevant_tables:
             cols = inspector.get_columns(t)
             col_parts = [f"{c.get('name')} ({c.get('type')})" for c in cols]
             schema_str += f"TABLE: {t}\nCOLUMNS: {', '.join(col_parts)}\n\n"
 
-        # --- build dynamic few-shot examples relevant to this question ---
+        # --- Retrieve few-shot examples dynamically ---
         fewshot_str = _get_relevant_examples(example_store, question, k=3)
-        if not fewshot_str:
-            # fallback to static examples joined
-            fewshot_str = "\n\n".join([f"Q: {ex['input']}\nSQL: {ex['sql']}" for ex in STATIC_EXAMPLES])
+        if "No few-shot examples available" in fewshot_str or not fewshot_str.strip():
+            print("[FewShot] ⚠️ No dynamic examples found, rebuilding few-shot store...")
+            example_store = build_fewshot_example_store()
+            fewshot_str = _get_relevant_examples(example_store, question, k=3)
 
-        # --- debug prints: show what's stored in chroma (schema and examples) ---
+        # --- Debug info (optional, safe to keep) ---
         try:
             print("\n[DEBUG] --- Chroma schema collection snapshot ---")
             docs_schema = schema_store._collection.get(include=["documents", "metadatas"])
             for i, doc in enumerate(docs_schema.get("documents", [])):
-                print(f"  - SCHEMA DOC {i+1}: {doc[:200]} ...  METADATA: {docs_schema['metadatas'][i]}")
+                print(f"  - SCHEMA DOC {i+1}: {doc[:150]} ...  METADATA: {docs_schema['metadatas'][i]}")
             print("[DEBUG] --- Chroma few-shot collection snapshot ---")
             docs_examples = example_store._collection.get(include=["documents", "metadatas"])
             for i, doc in enumerate(docs_examples.get("documents", [])):
-                print(f"  - EXAMPLE DOC {i+1}: {doc[:200]} ... METADATA: {docs_examples['metadatas'][i]}")
+                print(f"  - EXAMPLE DOC {i+1}: {doc[:150]} ... METADATA: {docs_examples['metadatas'][i]}")
         except Exception as e:
             print("[DEBUG] (info) Could not dump Chroma internals for debug:", e)
 
-
-        # --- build prompt ---
+        # --- Prompt building (LLM input) ---
         prompt = f"""
 You are a MySQL expert. The user is asking about the database '{db_name}'.
 
@@ -222,16 +168,16 @@ User question:
 
 Instructions:
 - Only use the listed tables and columns.
-- Do not invent columns or tables.
-- Return a syntactically correct MySQL query and ONLY the SQL (no markdown/explanations).
+- Do NOT invent columns or tables.
+- Generate a syntactically correct MySQL query.
+- Return only the SQL, no markdown or commentary.
 """
 
-        # --- invoke LLM ---
+        # --- Query LLM ---
         response = llm.invoke(prompt)
-        sql_query = response.content.strip()
-        sql_query = sql_query.replace("```sql", "").replace("```", "").strip()
+        sql_query = response.content.strip().replace("```sql", "").replace("```", "").strip()
 
-        # escape % to avoid pymysql/pandas formatting issues
+        # Escape % for pandas/pymysql
         if "%" in sql_query:
             sql_query = sql_query.replace("%", "%%")
 
@@ -239,6 +185,7 @@ Instructions:
         print(f"[NL2SQL] Database: {db_name}")
         print(f"[NL2SQL] Relevant Tables: {relevant_tables}")
         print(f"================ Schema sent :\n {schema_str}")
+        print(f"================ Few-shot examples sent :\n {fewshot_str}")
         print(f"[NL2SQL] Question: {question}")
         print(f"[NL2SQL] SQL (escaped): {sql_query}")
         print("=======================\n")
@@ -248,6 +195,8 @@ Instructions:
             "db_name": db_name,
             "tables_used": relevant_tables,
             "question": question,
+            "schema_str": schema_str,
+            "fewshot_str": fewshot_str,
             "sql_query": sql_query
         }
 
