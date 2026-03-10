@@ -21,11 +21,12 @@ def followup_ui(db_selected):
         st.session_state.last_followup_sql = ""
 
     # --- Display previous result if available ---
-    if not st.session_state.last_result_df.empty:
-        st.markdown("**Previous Result:**")
+    if st.session_state.last_result_df is not None:
+        st.markdown("### 📋 Previous Result:")
         st.dataframe(st.session_state.last_result_df)
     else:
-        st.info("No previous result found. Please run a main query first.")
+        st.info("No previous result found. Please run a query first.")
+
 
     # --- User input for follow-up ---
     followup = st.text_input("Ask a follow-up question related to the previous result")

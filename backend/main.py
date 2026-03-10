@@ -5,6 +5,7 @@ from app.routes import execute_query
 from app.routes import db_meta
 from app.routes import debug_chroma
 from app.routes import refresh_schema
+from app.routes import summarize
 
 
 
@@ -20,6 +21,8 @@ app.include_router(execute_query.router, prefix="/api/execute", tags=["Execute"]
 app.include_router(db_meta.router, prefix="/api", tags=["DB Meta"])
 app.include_router(debug_chroma.router, prefix="/api/debug", tags=["Debug"])
 app.include_router(refresh_schema.router, prefix="/api/refresh", tags=["Schema Refresh"])
+
+app.include_router(summarize.router, prefix="/api/summarize", tags=["summarization"])
 
 
 # Health check route
