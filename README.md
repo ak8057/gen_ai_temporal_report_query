@@ -235,6 +235,78 @@ Y --> E
 
 <img width="2840" height="6138" alt="NotebookLM Mind Map" src="https://github.com/user-attachments/assets/51508fca-ebe3-4c2f-897e-d3f02a7228ea" />
 
+## Data ingestion Pipeline
+```mermaid
+flowchart TD
+
+%% ==========================
+%% ENTRY POINT
+%% ==========================
+A[Upload Request: file + db_name] --> B{File Type}
+B -->|xlsx / xls / csv| C[Structured File Pipeline]
+B -->|pdf| D[PDF Pipeline]
+B -->|other| Z[Error: Unsupported File Type]
+
+%% ==========================
+%% STRUCTURED FILE PIPELINE
+%% ==========================
+subgraph C_PIPE [Excel CSV Processing]
+C --> C1[Save temp file]
+C1 --> C2[Load into DataFrame]
+C2 --> C3[Data Cleaning<br>trim, normalize nulls, sanitize headers]
+C3 --> C4[LLM Analysis Gemini<br>table name and column mapping]
+C4 --> C5[Apply column mapping]
+end
+
+%% ==========================
+%% PDF PIPELINE
+%% ==========================
+subgraph D_PIPE [PDF Processing]
+D --> D1[Save temp PDF]
+D1 --> D2[Extract text using pdfplumber]
+D2 --> D3[Chunk text with overlap]
+D3 --> D4[LLM Extraction<br>rows, schema, primary key]
+D4 --> D5[Aggregate and deduplicate rows]
+D5 --> D6{Rows extracted}
+D6 -->|no| D7[Fallback extract table]
+D6 -->|yes| D8[Build DataFrame]
+D7 --> D8
+D8 --> D9[Clean and sanitize headers]
+end
+
+%% ==========================
+%% COMMON DATABASE PIPELINE
+%% ==========================
+C5 --> E
+D9 --> E
+
+subgraph DB_PIPE [Database and Schema Handling]
+E[Ensure DB exists] --> F[Generate fingerprint<br>headers, sample, filename]
+
+F --> G{Match existing table using Chroma}
+G -->|yes| H[Use matched table]
+G -->|no| I[Try name-based match]
+I -->|yes| H
+I -->|no| J[Create new table name]
+
+H --> K{Table exists}
+J --> K
+
+K -->|no| L[Create table replace]
+L --> M[Store fingerprint in Chroma]
+
+K -->|yes| N[Column alignment<br>embedding plus lexical]
+N --> O[Alter table for new columns]
+O --> P[Rename incoming columns]
+P --> Q[Schema coercion<br>type casting and cleanup]
+Q --> R[Append data]
+
+M --> S[Update schema embeddings]
+R --> S
+
+S --> T[Return success<br>table, rows, columns, metadata]
+end
+```
 ---
 
 ## 4.1 Data Ingestion Pipeline
